@@ -74,14 +74,13 @@ class SaveBetterTransformerModelCallback(
         return control
 
 
-class PrintGPUStatsCallback(
+class GPUStatsCallback(
     TrainerCallback
 ):  # pylint: disable=too-few-public-methods disable=unused-argument
-    """Callback to print GPU utilization"""
+    """Callback to track GPU utilization"""
 
     def __init__(self, cfg):
         self.cfg = cfg
-        self.logged = False
 
     def on_step_end(
         self,
@@ -90,7 +89,31 @@ class PrintGPUStatsCallback(
         control: TrainerControl,
         **kwargs,
     ):
-        if not self.logged:
+        should_log = (
+            state.global_step == 1
+            or (state.global_step in range(1, 100) and state.global_step % 10 == 0)
+            or (state.global_step > 100 and state.global_step % 100 == 0)
+        )
+        if should_log:
             log_gpu_memory_usage(LOG, "while training", self.cfg.device)
-            self.logged = True
+        return control
+
+    def on_train_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
+        log_gpu_memory_usage(LOG, "after training", self.cfg.device)
+        return control
+
+    def on_evaluate(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
+        log_gpu_memory_usage(LOG, "after eval", self.cfg.device)
         return control
